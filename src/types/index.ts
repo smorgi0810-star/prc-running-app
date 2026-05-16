@@ -36,6 +36,9 @@ export type User = {
   marathonGoalTime: string;
   isApproved: boolean;
   isAdmin: boolean;
+  shirtSize?: string;
+  pantsSize?: string;
+  shoeSize?: string;
 };
 
 export type RunRecord = {
@@ -67,6 +70,7 @@ export type FeedPost = {
   date: string;
   content: string;
   image: string;
+  mediaType?: "image" | "video";
   hashtags: string[];
   likes: string[];
   comments: Comment[];
