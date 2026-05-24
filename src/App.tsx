@@ -94,6 +94,14 @@ type HeroSlide = {
   uploadedAt: string;
 };
 
+type TimelineSlide = {
+  id: string;
+  month: string;
+  title: string;
+  description: string;
+  image: string;
+};
+
 type Notice = {
   id: string;
   title: string;
@@ -109,6 +117,7 @@ type AppState = {
   runEvents: RunEvent[];
   galleryPhotos: GalleryPhoto[];
   heroSlides: HeroSlide[];
+  timelineSlides: TimelineSlide[];
   notices: Notice[];
 };
 
@@ -177,6 +186,12 @@ const defaultState: AppState = {
     { id: "h01", image: img.run3, uploadedAt: "2026-05-01T08:00:00" },
     { id: "h02", image: img.run1, uploadedAt: "2026-05-02T08:00:00" },
     { id: "h03", image: img.run2, uploadedAt: "2026-05-03T08:00:00" },
+  ],
+  timelineSlides: [
+    { id: "tl01", month: "2025.05", title: "PRC 시작", description: "처음 함께 달린 날, 모든 기록이 시작됐다.", image: img.run3 },
+    { id: "tl02", month: "2025.08", title: "첫 여름 챌린지", description: "무더운 여름에도 멈추지 않은 우리.", image: img.run1 },
+    { id: "tl03", month: "2025.11", title: "첫 대회 참가", description: "함께 뛰니 기록보다 추억이 먼저 남았다.", image: img.run2 },
+    { id: "tl04", month: "2026.05", title: "1주년", description: "365 Days Running Together.", image: img.run4 },
   ],
   notices: [
     { id: "n01", title: "5월 20일 PRC 1주년", content: "1년간 함께 달린 기록을 홈페이지로 공유합니다.", category: "공지", pinned: true },
@@ -337,6 +352,7 @@ function readState(): AppState {
     runEvents: s.runEvents || defaultState.runEvents,
     galleryPhotos: s.galleryPhotos || defaultState.galleryPhotos,
     heroSlides: s.heroSlides || defaultState.heroSlides,
+    timelineSlides: s.timelineSlides || defaultState.timelineSlides,
     notices: s.notices || defaultState.notices,
   };
 }
@@ -586,7 +602,7 @@ export default function PRCRunningCrewFinalApp() {
     const rid = uid("r");
     const rec: RunRecord = { id: rid, userId: currentUser.id, date: recordForm.date, startTime: minutesLabel(Number(recordForm.startMinutes)), distanceKm: Number(recordForm.distanceKm), pace: recordForm.pace, durationMinutes: Number(recordForm.durationMinutes), avgHeartRate: Number(recordForm.avgHeartRate), image: feedImage, memo: recordForm.memo, hashtags: tags };
     const post: FeedPost = { id: uid("p"), userId: currentUser.id, date: recordForm.date, content: recordForm.memo || "오늘도 PRC와 함께 달렸습니다.", image: feedImage, mediaType: feedMediaType, hashtags: tags, likes: [], comments: [], runRecordId: rid };
-    patch((p) => ({ ...p, runRecords: [rec, ...p.runRecords], feedPosts: [post, ...p.feedPosts], galleryPhotos: [{ id: uid("g"), image: feedImage, uploadedBy: currentUser.id, uploadedAt: now(), caption: recordForm.memo || "Running Memory" }, ...p.galleryPhotos] }));
+    patch((p) => ({ ...p, runRecords: [rec, ...p.runRecords], feedPosts: [post, ...p.feedPosts] }));
     setFeedImage("");
     setFeedMediaType("image");
     setRecordForm({ date: today(), distanceKm: "6", pace: "6:30", durationMinutes: "39", avgHeartRate: 145, startMinutes: 390, memo: "", hashtags: "PRC" });
@@ -614,13 +630,25 @@ export default function PRCRunningCrewFinalApp() {
     if (!galleryForm.image) return toast("사진을 첨부해주세요.");
     patch((p) => ({ ...p, galleryPhotos: [{ id: uid("g"), image: galleryForm.image, uploadedBy: currentUser.id, uploadedAt: now(), caption: galleryForm.caption || "PRC Memory" }, ...p.galleryPhotos] }));
     setGalleryForm({ image: "", caption: "" });
+    toast("Memory Gallery에 사진이 등록되었습니다.");
   }
   function addHero(): void {
     if (!currentUser?.isAdmin) return;
     if (!heroImage) return toast("이미지를 등록해주세요.");
-    if (state.heroSlides.length >= 5) return toast("최대 5장까지 가능합니다.");
+    if (state.heroSlides.length >= 5) return toast("최대 5장까지 가능합니다. 기존 사진을 변경해주세요.");
     patch((p) => ({ ...p, heroSlides: [{ id: uid("h"), image: heroImage, uploadedAt: now() }, ...p.heroSlides].slice(0, 5) }));
     setHeroImage("");
+    toast("Hero 슬라이드가 신규 등록되었습니다.");
+  }
+  function replaceHeroSlide(heroId: string, image: string): void {
+    if (!currentUser?.isAdmin || !image) return;
+    patch((p) => ({ ...p, heroSlides: p.heroSlides.map((h) => h.id === heroId ? { ...h, image, uploadedAt: now() } : h) }));
+    toast("Hero 슬라이드 사진이 변경되었습니다.");
+  }
+  function replaceTimelineSlide(slideId: string, image: string): void {
+    if (!currentUser?.isAdmin || !image) return;
+    patch((p) => ({ ...p, timelineSlides: p.timelineSlides.map((slide) => slide.id === slideId ? { ...slide, image } : slide) }));
+    toast("우리의 1년 사진이 변경되었습니다.");
   }
   function saveProfile(): void {
     if (!profile || !currentUser) return;
@@ -628,11 +656,13 @@ export default function PRCRunningCrewFinalApp() {
     toast("프로필이 저장되었습니다.");
   }
   function reset(): void {
+    if (!window.confirm("전체 데이터를 초기화하시겠습니까? 현재 브라우저에 저장된 데이터가 모두 삭제됩니다.")) return;
     localStorage.removeItem(STORAGE_KEY);
     localStorage.removeItem(SESSION_KEY);
     setState(defaultState);
     setSession("");
     setTab("login");
+    toast("전체 데이터가 초기화되었습니다.");
   }
   function openMap(url: string, e?: React.MouseEvent): void {
     e?.stopPropagation();
@@ -779,7 +809,7 @@ export default function PRCRunningCrewFinalApp() {
         </section>
 
         <section className="mt-14"><SectionTitle eyebrow="Crew Notice" title="공지사항" desc="PRC 1주년과 주요 러닝 일정을 빠르게 확인합니다." /><div className="grid gap-4 md:grid-cols-3">{state.notices.map((n) => <Card key={n.id} className="p-5"><Pill tone={n.pinned ? "lime" : "default"}>{n.category}</Pill><h3 className="mt-4 text-lg font-black">{n.title}</h3><p className="mt-2 text-sm leading-6 text-zinc-400">{n.content}</p></Card>)}</div></section>
-        <section className="mt-14"><SectionTitle eyebrow="Anniversary Timeline" title="우리의 1년" desc="1주년 감성의 카드형 타임라인입니다." /><div className="grid gap-5 md:grid-cols-4">{[{ m:"2025.05", t:"PRC 시작", p:"처음 함께 달린 날, 모든 기록이 시작됐다.", im: img.run3 }, { m:"2025.08", t:"첫 여름 챌린지", p:"무더운 여름에도 멈추지 않은 우리.", im: img.run1 }, { m:"2025.11", t:"첫 대회 참가", p:"함께 뛰니 기록보다 추억이 먼저 남았다.", im: img.run2 }, { m:"2026.05", t:"1주년", p:"365 Days Running Together.", im: img.run4 }].map((x) => <Card key={x.m} className="overflow-hidden transition hover:-translate-y-2"><div className="relative h-48"><img src={x.im} className="h-full w-full object-cover" alt={x.t} /><div className="absolute left-4 top-4 rounded-full bg-lime-300 px-3 py-1 text-xs font-black text-zinc-950">1st</div></div><div className="p-5"><div className="text-3xl font-black text-lime-300">{x.m}</div><h3 className="mt-3 text-xl font-black">{x.t}</h3><p className="mt-2 text-sm leading-6 text-zinc-400">{x.p}</p></div></Card>)}</div></section>
+        <section className="mt-14"><SectionTitle eyebrow="Anniversary Timeline" title="우리의 1년" desc="관리자 모드에서 직접 등록/교체한 1주년 타임라인 사진입니다." /><div className="grid gap-5 md:grid-cols-4">{state.timelineSlides.map((x) => <Card key={x.id} className="overflow-hidden transition hover:-translate-y-2"><div className="relative h-48"><img src={x.image} className="h-full w-full object-cover" alt={x.title} /><div className="absolute left-4 top-4 rounded-full bg-lime-300 px-3 py-1 text-xs font-black text-zinc-950">1st</div></div><div className="p-5"><div className="text-3xl font-black text-lime-300">{x.month}</div><h3 className="mt-3 text-xl font-black">{x.title}</h3><p className="mt-2 text-sm leading-6 text-zinc-400">{x.description}</p></div></Card>)}</div></section>
         <section className="mt-10"><SectionTitle eyebrow="Memory Gallery" title="함께 달려온 PRC의 추억" desc="최신 사진 15장만 표시합니다. 전체 사진은 상단 Memory Gallery에서 확인하세요." /><div className="grid grid-cols-4 gap-3">{homeGallery.map((p, i) => <div key={p.id} className={cn("relative overflow-hidden rounded-3xl border border-white/10", i === 0 ? "col-span-4 md:col-span-2 md:row-span-2" : i < 5 ? "col-span-2" : "col-span-1")}><img src={p.image} alt={p.caption} className="h-full min-h-32 w-full object-cover" /><div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/80 to-transparent p-3"><div className="text-xs font-black">{p.caption}</div></div></div>)}</div></section>
       </>}
 
@@ -811,7 +841,16 @@ export default function PRCRunningCrewFinalApp() {
 
       {activeTab === "profile" && <section><SectionTitle eyebrow="My Profile" title="프로필 관리" desc="생일은 선택형 UI로, 사진 편집 영역은 크게 개선했습니다." />{!currentUser ? <Empty text="로그인이 필요합니다." /> : profile && <Card className="p-5 md:p-7"><div className="grid gap-8 lg:grid-cols-[360px_1fr]"><div className="rounded-[32px] border border-white/10 bg-zinc-950/40 p-6"><div className="flex justify-center"><Avatar user={profile} size="xl" /></div><label className="mt-6 flex cursor-pointer justify-center rounded-2xl bg-white px-4 py-3 text-sm font-black text-zinc-950">프로필 사진 변경<input type="file" accept="image/*" className="hidden" onChange={(e) => void upload(e.target.files?.[0], (url) => setProfile({ ...profile, profileImage: url }))} /></label><div className="mt-6 grid gap-5"><label className="text-xs font-black text-zinc-400">사진 확대 {profile.profileImageScale.toFixed(1)}<input type="range" min="0.8" max="2.4" step="0.1" value={profile.profileImageScale} onChange={(e) => setProfile({ ...profile, profileImageScale: Number(e.target.value) })} className="mt-3 w-full accent-lime-300" /></label><label className="text-xs font-black text-zinc-400">X 이동<input type="range" min="-60" max="60" value={profile.profileImageX} onChange={(e) => setProfile({ ...profile, profileImageX: Number(e.target.value) })} className="mt-3 w-full accent-lime-300" /></label><label className="text-xs font-black text-zinc-400">Y 이동<input type="range" min="-60" max="60" value={profile.profileImageY} onChange={(e) => setProfile({ ...profile, profileImageY: Number(e.target.value) })} className="mt-3 w-full accent-lime-300" /></label></div></div><div className="grid gap-4 md:grid-cols-2"><Input label="이름" value={profile.name} onChange={(v) => setProfile({ ...profile, name: v })} /><Input label="별칭" value={profile.nickname} onChange={(v) => setProfile({ ...profile, nickname: v })} /><Input label="이메일" value={profile.email} onChange={(v) => setProfile({ ...profile, email: v })} /><Input label="전화번호" value={profile.phone} onChange={(v) => setProfile({ ...profile, phone: v })} /><Input label="혈액형" value={profile.bloodType} onChange={(v) => setProfile({ ...profile, bloodType: v })} /><Input label="MBTI" value={profile.mbti} onChange={(v) => setProfile({ ...profile, mbti: v })} /><Input label="상의 사이즈" value={profile.shirtSize || ""} onChange={(v) => setProfile({ ...profile, shirtSize: v })} placeholder="예: 100, L, XL" /><Input label="하의 사이즈" value={profile.pantsSize || ""} onChange={(v) => setProfile({ ...profile, pantsSize: v })} placeholder="예: 32, L" /><Input label="신발 사이즈" value={profile.shoeSize || ""} onChange={(v) => setProfile({ ...profile, shoeSize: v })} placeholder="예: 270" /><SelectInput label="생일 구분" value={profile.birthdayCalendar} onChange={(v) => setProfile({ ...profile, birthdayCalendar: v as CalendarType })}><option value="solar">양력</option><option value="lunar">음력</option></SelectInput><SelectInput label="생일 년" value={profile.birthdayYear} onChange={(v) => setProfile({ ...profile, birthdayYear: v })}>{birthYears.map((y) => <option key={y} value={y}>{y}년</option>)}</SelectInput><SelectInput label="생일 월" value={profile.birthdayMonth} onChange={(v) => { const maxDay = daysInMonth(profile.birthdayYear, v); setProfile({ ...profile, birthdayMonth: v, birthdayDay: String(Math.min(Number(profile.birthdayDay), maxDay)).padStart(2, "0") }); }}>{birthMonths.map((m) => <option key={m} value={m}>{Number(m)}월</option>)}</SelectInput><SelectInput label="생일 일" value={profile.birthdayDay} onChange={(v) => setProfile({ ...profile, birthdayDay: v })}>{birthDays.map((d) => <option key={d} value={d}>{Number(d)}일</option>)}</SelectInput><Input label="월 목표 km" type="number" value={profile.monthlyGoalKm} onChange={(v) => setProfile({ ...profile, monthlyGoalKm: Number(v) })} /><Input label="마라톤 목표 횟수" type="number" value={profile.marathonGoalCount} onChange={(v) => setProfile({ ...profile, marathonGoalCount: Number(v) })} /><Input label="목표 거리" value={profile.marathonGoalDistance} onChange={(v) => setProfile({ ...profile, marathonGoalDistance: v })} /><Input label="목표 시간" value={profile.marathonGoalTime} onChange={(v) => setProfile({ ...profile, marathonGoalTime: v })} /></div></div><button onClick={saveProfile} className="mt-6 w-full rounded-2xl bg-lime-300 px-5 py-4 text-sm font-black text-zinc-950">프로필 저장</button></Card>}</section>}
 
-      {activeTab === "admin" && <section><SectionTitle eyebrow="Admin" title="관리자 설정" desc="가입 승인, Hero 이미지, 데이터 초기화를 관리합니다." /><div className="grid gap-6 lg:grid-cols-2"><Card className="p-5"><h3 className="text-xl font-black">승인 대기 회원</h3><div className="mt-4 grid gap-3">{pendingUsers.length ? pendingUsers.map((u) => <div key={u.id} className="flex items-center gap-3 rounded-2xl bg-white/[0.04] p-3"><Avatar user={u} /><div className="flex-1"><div className="font-black">{u.name}</div><div className="text-xs text-zinc-500">{u.loginId}</div></div><button onClick={() => approve(u.id)} className="rounded-2xl bg-white px-4 py-2 text-sm font-black text-zinc-950">승인</button></div>) : <Empty text="승인 대기 회원이 없습니다." />}</div></Card><Card className="p-5"><h3 className="text-xl font-black">Hero 슬라이드 관리</h3><label className="mt-4 flex cursor-pointer justify-center rounded-2xl bg-white px-4 py-3 text-sm font-black text-zinc-950">사진 선택<input type="file" accept="image/*" className="hidden" onChange={(e) => void upload(e.target.files?.[0], setHeroImage)} /></label>{heroImage && <img src={heroImage} className="mt-4 max-h-56 w-full rounded-3xl object-cover" alt="hero preview" />}<button onClick={addHero} className="mt-4 w-full rounded-2xl bg-lime-300 px-5 py-3 text-sm font-black text-zinc-950">Hero 추가</button><button onClick={reset} className="mt-3 w-full rounded-2xl bg-rose-500 px-5 py-3 text-sm font-black text-white">전체 데이터 초기화</button></Card></div></section>}
+      {activeTab === "admin" && <section><SectionTitle eyebrow="Admin" title="관리자 설정" desc="가입 승인, Hero/타임라인 이미지 관리, 전체 데이터 초기화를 관리합니다." />
+        <div className="grid gap-6 lg:grid-cols-2">
+          <Card className="p-5"><h3 className="text-xl font-black">승인 대기 회원</h3><div className="mt-4 grid gap-3">{pendingUsers.length ? pendingUsers.map((u) => <div key={u.id} className="flex items-center gap-3 rounded-2xl bg-white/[0.04] p-3"><Avatar user={u} /><div className="flex-1"><div className="font-black">{u.name}</div><div className="text-xs text-zinc-500">{u.loginId}</div></div><button onClick={() => approve(u.id)} className="rounded-2xl bg-white px-4 py-2 text-sm font-black text-zinc-950">승인</button></div>) : <Empty text="승인 대기 회원이 없습니다." />}</div></Card>
+          <Card className="p-5"><h3 className="text-xl font-black">전체 데이터 초기화</h3><p className="mt-2 text-sm leading-6 text-zinc-400">현재 브라우저 localStorage에 저장된 회원, 피드, 일정, 사진 데이터를 기본값으로 초기화합니다.</p><button onClick={reset} className="mt-5 w-full rounded-2xl bg-rose-500 px-5 py-3 text-sm font-black text-white">전체 데이터 초기화</button></Card>
+        </div>
+
+        <Card className="mt-6 p-5"><h3 className="text-xl font-black">Hero 슬라이드 관리</h3><p className="mt-2 text-sm text-zinc-400">기존 Hero 사진을 변경하거나 신규 Hero 사진을 등록할 수 있습니다.</p><div className="mt-5 grid gap-4 md:grid-cols-3">{state.heroSlides.map((h, index) => <div key={h.id} className="rounded-3xl border border-white/10 bg-white/[0.03] p-3"><img src={h.image} className="h-40 w-full rounded-2xl object-cover" alt={`Hero ${index + 1}`} /><div className="mt-3 text-sm font-black">Hero {index + 1}</div><label className="mt-3 flex cursor-pointer justify-center rounded-2xl bg-white px-4 py-3 text-xs font-black text-zinc-950">기존 사진 변경<input type="file" accept="image/*" className="hidden" onChange={(e) => void upload(e.target.files?.[0], (url) => replaceHeroSlide(h.id, url))} /></label></div>)}</div><div className="mt-5 rounded-3xl border border-dashed border-lime-300/30 bg-lime-300/[0.04] p-4"><h4 className="font-black">신규 Hero 등록</h4><label className="mt-3 flex cursor-pointer justify-center rounded-2xl bg-white px-4 py-3 text-sm font-black text-zinc-950">신규 사진 선택<input type="file" accept="image/*" className="hidden" onChange={(e) => void upload(e.target.files?.[0], setHeroImage)} /></label>{heroImage && <img src={heroImage} className="mt-4 max-h-56 w-full rounded-3xl object-cover" alt="hero preview" />}<button onClick={addHero} className="mt-4 w-full rounded-2xl bg-lime-300 px-5 py-3 text-sm font-black text-zinc-950">Hero 신규 등록</button></div></Card>
+
+        <Card className="mt-6 p-5"><h3 className="text-xl font-black">Anniversary Timeline 사진 관리</h3><p className="mt-2 text-sm text-zinc-400">Home 화면의 ‘우리의 1년’ 4개 사진을 직접 교체할 수 있습니다.</p><div className="mt-5 grid gap-4 md:grid-cols-4">{state.timelineSlides.map((slide) => <div key={slide.id} className="rounded-3xl border border-white/10 bg-white/[0.03] p-3"><img src={slide.image} className="h-36 w-full rounded-2xl object-cover" alt={slide.title} /><div className="mt-3 text-sm font-black text-lime-300">{slide.month}</div><div className="text-sm font-black">{slide.title}</div><label className="mt-3 flex cursor-pointer justify-center rounded-2xl bg-white px-4 py-3 text-xs font-black text-zinc-950">타임라인 사진 변경<input type="file" accept="image/*" className="hidden" onChange={(e) => void upload(e.target.files?.[0], (url) => replaceTimelineSlide(slide.id, url))} /></label></div>)}</div></Card>
+      </section>}
 
       {activeTab === "login" && <section className="mx-auto max-w-xl"><Card className="p-7"><div className="text-center"><div className="mx-auto flex h-16 w-16 items-center justify-center rounded-3xl bg-transparent p-0 shadow-none"><img src={PRC_LOGO_DATA_URL} alt="PRC logo" className="h-full w-full object-contain" /></div><h2 className="mt-5 text-3xl font-black">PRC Login</h2><p className="mt-2 text-sm text-zinc-500">runner01 / 1234 또는 admin / 1234</p></div><div className="mt-6 flex rounded-2xl bg-white/[0.05] p-1"><button onClick={() => setAuthMode("login")} className={cn("flex-1 rounded-xl py-3 text-sm font-black", authMode === "login" ? "bg-lime-300 text-zinc-950" : "text-zinc-400")}>로그인</button><button onClick={() => setAuthMode("signup")} className={cn("flex-1 rounded-xl py-3 text-sm font-black", authMode === "signup" ? "bg-lime-300 text-zinc-950" : "text-zinc-400")}>회원가입</button></div><div className="mt-6 grid gap-4">{authMode === "signup" && <><Input label="이름" value={auth.name} onChange={(v) => setAuth({ ...auth, name: v })} /><Input label="이메일" value={auth.email} onChange={(v) => setAuth({ ...auth, email: v })} /><Input label="전화번호" value={auth.phone} onChange={(v) => setAuth({ ...auth, phone: v })} /></>}<Input label="아이디" value={auth.loginId} onChange={(v) => setAuth({ ...auth, loginId: v })} /><Input label="비밀번호" type="password" value={auth.password} onChange={(v) => setAuth({ ...auth, password: v })} />{authMode === "signup" && <Input label="비밀번호 확인" type="password" value={auth.passwordConfirm} onChange={(v) => setAuth({ ...auth, passwordConfirm: v })} />}<button onClick={authMode === "login" ? login : signup} className="rounded-2xl bg-lime-300 px-5 py-4 text-sm font-black text-zinc-950">{authMode === "login" ? "로그인" : "가입 신청"}</button></div></Card></section>}
     </main>
