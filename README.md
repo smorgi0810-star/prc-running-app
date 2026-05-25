@@ -34,7 +34,7 @@ public/logo.png   PRC 로고
 
 ```txt
 관리자: admin / 1234
-사용자: runner01 / 1234
+사용자: 회원가입 후 관리자 승인 필요
 ```
 
 ## 참고

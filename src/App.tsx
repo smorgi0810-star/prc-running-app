@@ -121,7 +121,7 @@ type AppState = {
   notices: Notice[];
 };
 
-const STORAGE_KEY = "prc_running_crew_final_v1";
+const STORAGE_KEY = "prc_running_crew_final_v3";
 const SESSION_KEY = "prc_running_crew_session_final_v1";
 const FINISHER_ICON = "🏁";
 
@@ -198,6 +198,52 @@ const defaultState: AppState = {
     { id: "n02", title: "Memory Gallery 업로드", content: "각자 가지고 있는 베스트 러닝 사진을 등록해주세요.", category: "사진", pinned: false },
     { id: "n03", title: "정기런 참석 체크", content: "Schedule에서 참석하기를 눌러 참석자를 확인할 수 있습니다.", category: "일정", pinned: false },
   ],
+};
+
+const productionEmptyState: AppState = {
+  users: [
+    {
+      id: "u_admin",
+      loginId: "admin",
+      password: "1234",
+      name: "PRC Admin",
+      email: "admin@prc.com",
+      phone: "",
+      nickname: "운영자",
+      role: "관리자",
+      bloodType: "",
+      mbti: "",
+      profileImage: "",
+      profileImageScale: 1,
+      profileImageX: 0,
+      profileImageY: 0,
+      birthdayCalendar: "solar",
+      birthdayYear: "1990",
+      birthdayMonth: "01",
+      birthdayDay: "01",
+      marathonGoalCount: 0,
+      monthlyGoalKm: 0,
+      marathonGoalDistance: "",
+      marathonGoalTime: "",
+      isApproved: true,
+      isAdmin: true,
+      shirtSize: "",
+      pantsSize: "",
+      shoeSize: "",
+    },
+  ],
+  runRecords: [],
+  feedPosts: [],
+  runEvents: [],
+  galleryPhotos: [],
+  heroSlides: [],
+  timelineSlides: [
+    { id: "tl01", month: "2025.05", title: "PRC 시작", description: "처음 함께 달린 날, 모든 기록이 시작됐다.", image: "" },
+    { id: "tl02", month: "2025.08", title: "첫 여름 챌린지", description: "무더운 여름에도 멈추지 않은 우리.", image: "" },
+    { id: "tl03", month: "2025.11", title: "첫 대회 참가", description: "함께 뛰니 기록보다 추억이 먼저 남았다.", image: "" },
+    { id: "tl04", month: "2026.05", title: "1주년", description: "365 Days Running Together.", image: "" },
+  ],
+  notices: [],
 };
 
 function uid(prefix: string): string {
@@ -324,11 +370,11 @@ function showPicker(e: React.FocusEvent<HTMLInputElement> | React.MouseEvent<HTM
   }
 }
 function readState(): AppState {
-  const s = parse<AppState>(localStorage.getItem(STORAGE_KEY), defaultState);
+  const s = parse<AppState>(localStorage.getItem(STORAGE_KEY), productionEmptyState);
   return {
-    ...defaultState,
+    ...productionEmptyState,
     ...s,
-    users: (s.users || defaultState.users).map((u) => ({
+    users: (s.users || productionEmptyState.users).map((u) => ({
       ...u,
       email: u.email || "",
       phone: u.phone || "",
@@ -343,17 +389,17 @@ function readState(): AppState {
       pantsSize: u.pantsSize || "",
       shoeSize: u.shoeSize || "",
     })),
-    feedPosts: (s.feedPosts || defaultState.feedPosts).map((p) => ({
+    feedPosts: (s.feedPosts || productionEmptyState.feedPosts).map((p) => ({
       ...p,
       comments: (p.comments || []).map((c) => ({ ...c, likes: c.likes || [] })),
       likes: p.likes || [],
       hashtags: p.hashtags || [],
     })),
-    runEvents: s.runEvents || defaultState.runEvents,
-    galleryPhotos: s.galleryPhotos || defaultState.galleryPhotos,
-    heroSlides: s.heroSlides || defaultState.heroSlides,
-    timelineSlides: s.timelineSlides || defaultState.timelineSlides,
-    notices: s.notices || defaultState.notices,
+    runEvents: s.runEvents || productionEmptyState.runEvents,
+    galleryPhotos: s.galleryPhotos || productionEmptyState.galleryPhotos,
+    heroSlides: s.heroSlides || productionEmptyState.heroSlides,
+    timelineSlides: s.timelineSlides || productionEmptyState.timelineSlides,
+    notices: s.notices || productionEmptyState.notices,
   };
 }
 
@@ -426,7 +472,7 @@ export default function PRCRunningCrewFinalApp() {
   const [session, setSession] = useState(localStorage.getItem(SESSION_KEY) || "");
   const [msg, setMsg] = useState("");
   const [authMode, setAuthMode] = useState<"login" | "signup">("login");
-  const [auth, setAuth] = useState({ name: "", email: "", phone: "", loginId: "runner01", password: "1234", passwordConfirm: "" });
+  const [auth, setAuth] = useState({ name: "", email: "", phone: "", loginId: "", password: "", passwordConfirm: "" });
   const [hero, setHero] = useState(0);
   const [calendarYear, setCalendarYear] = useState("2026");
   const [calendarMonthOnly, setCalendarMonthOnly] = useState("05");
@@ -656,13 +702,32 @@ export default function PRCRunningCrewFinalApp() {
     toast("프로필이 저장되었습니다.");
   }
   function reset(): void {
-    if (!window.confirm("전체 데이터를 초기화하시겠습니까? 현재 브라우저에 저장된 데이터가 모두 삭제됩니다.")) return;
-    localStorage.removeItem(STORAGE_KEY);
-    localStorage.removeItem(SESSION_KEY);
-    setState(defaultState);
+    if (!window.confirm("전체 데이터를 초기화하시겠습니까? 회원정보, 피드, 러닝 기록, 일정, 사진첩, Hero, 갤러리 데이터가 모두 삭제되고 관리자 계정만 남습니다.")) return;
+
+    const keysToRemove = [
+      STORAGE_KEY,
+      SESSION_KEY,
+      "prc_running_crew_final_v1",
+      "prc_running_crew_final_v2",
+      "prc_running_crew_final_v3",
+      "prc_running_crew_session_final_v1",
+    ];
+
+    keysToRemove.forEach((key) => {
+      localStorage.removeItem(key);
+      sessionStorage.removeItem(key);
+    });
+
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(productionEmptyState));
+    setState(productionEmptyState);
     setSession("");
+    setProfile(null);
+    setAuth({ name: "", email: "", phone: "", loginId: "", password: "", passwordConfirm: "" });
+    setGalleryForm({ image: "", caption: "" });
+    setFeedImage("");
+    setHeroImage("");
     setTab("login");
-    toast("전체 데이터가 초기화되었습니다.");
+    toast("전체 데이터가 초기화되었습니다. 관리자 계정만 유지됩니다.");
   }
   function openMap(url: string, e?: React.MouseEvent): void {
     e?.stopPropagation();
@@ -852,7 +917,7 @@ export default function PRCRunningCrewFinalApp() {
         <Card className="mt-6 p-5"><h3 className="text-xl font-black">Anniversary Timeline 사진 관리</h3><p className="mt-2 text-sm text-zinc-400">Home 화면의 ‘우리의 1년’ 4개 사진을 직접 교체할 수 있습니다.</p><div className="mt-5 grid gap-4 md:grid-cols-4">{state.timelineSlides.map((slide) => <div key={slide.id} className="rounded-3xl border border-white/10 bg-white/[0.03] p-3"><img src={slide.image} className="h-36 w-full rounded-2xl object-cover" alt={slide.title} /><div className="mt-3 text-sm font-black text-lime-300">{slide.month}</div><div className="text-sm font-black">{slide.title}</div><label className="mt-3 flex cursor-pointer justify-center rounded-2xl bg-white px-4 py-3 text-xs font-black text-zinc-950">타임라인 사진 변경<input type="file" accept="image/*" className="hidden" onChange={(e) => void upload(e.target.files?.[0], (url) => replaceTimelineSlide(slide.id, url))} /></label></div>)}</div></Card>
       </section>}
 
-      {activeTab === "login" && <section className="mx-auto max-w-xl"><Card className="p-7"><div className="text-center"><div className="mx-auto flex h-16 w-16 items-center justify-center rounded-3xl bg-transparent p-0 shadow-none"><img src={PRC_LOGO_DATA_URL} alt="PRC logo" className="h-full w-full object-contain" /></div><h2 className="mt-5 text-3xl font-black">PRC Login</h2><p className="mt-2 text-sm text-zinc-500">runner01 / 1234 또는 admin / 1234</p></div><div className="mt-6 flex rounded-2xl bg-white/[0.05] p-1"><button onClick={() => setAuthMode("login")} className={cn("flex-1 rounded-xl py-3 text-sm font-black", authMode === "login" ? "bg-lime-300 text-zinc-950" : "text-zinc-400")}>로그인</button><button onClick={() => setAuthMode("signup")} className={cn("flex-1 rounded-xl py-3 text-sm font-black", authMode === "signup" ? "bg-lime-300 text-zinc-950" : "text-zinc-400")}>회원가입</button></div><div className="mt-6 grid gap-4">{authMode === "signup" && <><Input label="이름" value={auth.name} onChange={(v) => setAuth({ ...auth, name: v })} /><Input label="이메일" value={auth.email} onChange={(v) => setAuth({ ...auth, email: v })} /><Input label="전화번호" value={auth.phone} onChange={(v) => setAuth({ ...auth, phone: v })} /></>}<Input label="아이디" value={auth.loginId} onChange={(v) => setAuth({ ...auth, loginId: v })} /><Input label="비밀번호" type="password" value={auth.password} onChange={(v) => setAuth({ ...auth, password: v })} />{authMode === "signup" && <Input label="비밀번호 확인" type="password" value={auth.passwordConfirm} onChange={(v) => setAuth({ ...auth, passwordConfirm: v })} />}<button onClick={authMode === "login" ? login : signup} className="rounded-2xl bg-lime-300 px-5 py-4 text-sm font-black text-zinc-950">{authMode === "login" ? "로그인" : "가입 신청"}</button></div></Card></section>}
+      {activeTab === "login" && <section className="mx-auto max-w-xl"><Card className="p-7"><div className="text-center"><div className="mx-auto flex h-16 w-16 items-center justify-center rounded-3xl bg-transparent p-0 shadow-none"><img src={PRC_LOGO_DATA_URL} alt="PRC logo" className="h-full w-full object-contain" /></div><h2 className="mt-5 text-3xl font-black">PRC Login</h2><p className="mt-2 text-sm text-zinc-500">관리자 계정 또는 승인된 회원 계정으로 로그인하세요.</p></div><div className="mt-6 flex rounded-2xl bg-white/[0.05] p-1"><button onClick={() => setAuthMode("login")} className={cn("flex-1 rounded-xl py-3 text-sm font-black", authMode === "login" ? "bg-lime-300 text-zinc-950" : "text-zinc-400")}>로그인</button><button onClick={() => setAuthMode("signup")} className={cn("flex-1 rounded-xl py-3 text-sm font-black", authMode === "signup" ? "bg-lime-300 text-zinc-950" : "text-zinc-400")}>회원가입</button></div><div className="mt-6 grid gap-4">{authMode === "signup" && <><Input label="이름" value={auth.name} onChange={(v) => setAuth({ ...auth, name: v })} /><Input label="이메일" value={auth.email} onChange={(v) => setAuth({ ...auth, email: v })} /><Input label="전화번호" value={auth.phone} onChange={(v) => setAuth({ ...auth, phone: v })} /></>}<Input label="아이디" value={auth.loginId} onChange={(v) => setAuth({ ...auth, loginId: v })} /><Input label="비밀번호" type="password" value={auth.password} onChange={(v) => setAuth({ ...auth, password: v })} />{authMode === "signup" && <Input label="비밀번호 확인" type="password" value={auth.passwordConfirm} onChange={(v) => setAuth({ ...auth, passwordConfirm: v })} />}<button onClick={authMode === "login" ? login : signup} className="rounded-2xl bg-lime-300 px-5 py-4 text-sm font-black text-zinc-950">{authMode === "login" ? "로그인" : "가입 신청"}</button></div></Card></section>}
     </main>
 
     {galleryPreview && <div className="fixed inset-0 z-[90] flex items-center justify-center bg-black/85 p-4 backdrop-blur"><div className="relative max-h-[92vh] w-full max-w-5xl"><button onClick={() => setGalleryPreview(null)} className="absolute -top-12 right-0 rounded-full bg-white px-4 py-2 text-sm font-black text-zinc-950">닫기 ×</button><img src={galleryPreview.image} alt={galleryPreview.caption} className="max-h-[88vh] w-full rounded-[28px] object-contain" /><div className="mt-3 rounded-2xl bg-zinc-950/80 px-4 py-3 text-sm font-black">{galleryPreview.caption}</div></div></div>}
