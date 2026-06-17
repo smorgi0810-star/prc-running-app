@@ -1,0 +1,10 @@
+{
+  "name": "PRC Running Crew",
+  "short_name": "PRC",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#09090b",
+  "theme_color": "#09090b",
+  "description": "Package Running Crew 1st Anniversary Running App",
+  "icons": []
+}
